@@ -25,6 +25,8 @@ Complete the browser login and confirm `cursor agent status` reports an authenti
 
 ## Create and configure the Slack app
 
+The Slack CLI is not required to run this bot; create and configure the app in Slack's app dashboard using the manifest below.
+
 1. In Slack's app dashboard, create an app from [`manifest.json`](./manifest.json) and select your workspace. The manifest enables Socket Mode, the writable App Home Messages tab, the required bot scopes, and the message events.
 2. Under **Basic Information → App-Level Tokens**, create an app-level token with the single scope `connections:write`. Save its `xapp-…` value as `SLACK_APP_TOKEN`.
 3. Under **OAuth & Permissions**, install the app to the workspace and copy its **Bot User OAuth Token** (`xoxb-…`) as `SLACK_BOT_TOKEN`. Reinstall after changing requested scopes.
