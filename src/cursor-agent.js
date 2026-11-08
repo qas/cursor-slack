@@ -28,6 +28,18 @@ export async function createChat() {
   return chatId;
 }
 
+function promptArgs({ chatId, prompt, workspace, model }) {
+  return [
+    'agent',
+    '--resume', chatId,
+    ...(model ? ['--model', model] : []),
+    '-p', prompt,
+    '--trust',
+    '--workspace', workspace,
+    '--output-format', 'stream-json',
+  ];
+}
+
 function assistantMessages(output) {
   let events;
   try {
@@ -50,15 +62,10 @@ function assistantMessages(output) {
 }
 
 export async function askAgent({ chatId, prompt, workspace, model }) {
-  const args = [
-    'agent',
-    '--resume', chatId,
-    ...(model ? ['--model', model] : []),
-    '-p', prompt,
-    '--trust',
-    '--workspace', workspace,
-    '--output-format', 'stream-json',
-  ];
-  const output = await run('cursor', args, { cwd: workspace });
+  const output = await run('cursor', promptArgs({ chatId, prompt, workspace, model }), { cwd: workspace });
   return assistantMessages(output);
+}
+
+export async function initializeChat({ chatId, prompt, workspace, model }) {
+  await run('cursor', promptArgs({ chatId, prompt, workspace, model }), { cwd: workspace });
 }

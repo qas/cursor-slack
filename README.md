@@ -54,6 +54,7 @@ Fill in the values in `$BOT_DIR/.env`:
 - `SLACK_ALLOWED_BOT_IDS`: approved Slack bot IDs (`B…`) and/or Slack app IDs (`A…`), separated by commas. App IDs are matched against the sender's `bot_profile.app_id`. Optional if user IDs are configured.
 - `SLACK_ALLOWED_CHANNEL_ID`: the ID of the one channel the bot may process.
 - `CURSOR_MODEL`: optional model ID passed to `cursor agent --model` for each reply. Leave blank to use the Cursor CLI account's default model. Run `cursor agent models` to list available models.
+- `CURSOR_SYSTEM_PROMPT`: optional instructions sent as the first prompt in each new Cursor chat. The bot ignores that setup turn's response; later Slack messages continue in the same chat.
 
 At least one of the user or bot allowlists must contain an ID. The bot ignores messages from senders outside these lists and messages outside the configured channel or a DM with the bot. Keep `.env` private; it is excluded by `.gitignore`.
 

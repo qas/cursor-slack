@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { loadConfig } from '../src/config.js';
-import { askAgent } from '../src/cursor-agent.js';
+import { askAgent, initializeChat } from '../src/cursor-agent.js';
 
 const requiredConfig = {
   SLACK_BOT_TOKEN: 'xoxb-test',
@@ -17,6 +17,11 @@ const requiredConfig = {
 test('CURSOR_MODEL is optional and trimmed when configured', () => {
   assert.equal(loadConfig(requiredConfig).model, undefined);
   assert.equal(loadConfig({ ...requiredConfig, CURSOR_MODEL: '  composer-2  ' }).model, 'composer-2');
+});
+
+test('CURSOR_SYSTEM_PROMPT is optional and trimmed when configured', () => {
+  assert.equal(loadConfig(requiredConfig).systemPrompt, undefined);
+  assert.equal(loadConfig({ ...requiredConfig, CURSOR_SYSTEM_PROMPT: '  Slack instructions  ' }).systemPrompt, 'Slack instructions');
 });
 
 test('askAgent passes a configured model to the Cursor CLI', async (t) => {
@@ -67,4 +72,16 @@ test('askAgent passes a configured model to the Cursor CLI', async (t) => {
   assert.deepEqual(response, ['First entry.', 'Second entry.\n\nStill the second entry.']);
   assert.deepEqual(args.slice(0, 5), ['agent', '--resume', 'chat-id', '--model', 'composer-2']);
   assert.deepEqual(args.slice(-2), ['--output-format', 'stream-json']);
+
+  const initializationResult = await initializeChat({
+    chatId: 'chat-id',
+    prompt: 'Set Slack behavior instructions',
+    workspace: '/tmp',
+    model: 'composer-2',
+  });
+  const initializationArgs = JSON.parse(await readFile(argumentPath, 'utf8'));
+  assert.equal(initializationResult, undefined);
+  assert.deepEqual(initializationArgs.slice(0, 5), ['agent', '--resume', 'chat-id', '--model', 'composer-2']);
+  assert.equal(initializationArgs[5], '-p');
+  assert.equal(initializationArgs[6], 'Set Slack behavior instructions');
 });

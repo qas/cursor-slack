@@ -1,9 +1,9 @@
 import { App } from '@slack/bolt';
 import { loadConfig } from './config.js';
-import { askAgent, createChat } from './cursor-agent.js';
+import { askAgent, createChat, initializeChat } from './cursor-agent.js';
 import { openSessions } from './sessions.js';
 import { toSlackMrkdwn } from './slack-markdown.js';
-import { shouldProcessMessage, slackMessageIdentity } from './slack-message-policy.js';
+import { shouldProcessMessage, shouldStartChat, slackMessageIdentity } from './slack-message-policy.js';
 
 const config = loadConfig();
 const sessions = await openSessions(config.statePath);
@@ -74,8 +74,16 @@ async function handleMessage({ event, body, client, isMention }) {
     try {
       let chatId = sessions.getChat(key);
       if (!chatId) {
-        if (!isMention) return;
+        if (!shouldStartChat({ isMention, text: event.text })) return;
         chatId = await createChat();
+        if (config.systemPrompt) {
+          await initializeChat({
+            chatId,
+            prompt: config.systemPrompt,
+            workspace: config.workspace,
+            model: config.model,
+          });
+        }
         await sessions.setChat(key, chatId);
       }
       const responses = await askAgent({

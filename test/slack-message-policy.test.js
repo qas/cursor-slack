@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { shouldProcessMessage, slackMessageIdentity } from '../src/slack-message-policy.js';
+import { shouldProcessMessage, shouldStartChat, slackMessageIdentity } from '../src/slack-message-policy.js';
 
 test('channel messages without a mention or trigger phrase are ignored', () => {
   assert.equal(shouldProcessMessage({ channelType: 'channel', isMention: false }), false);
@@ -11,6 +11,12 @@ test('channel messages containing Cursor Agent trigger case-insensitively', () =
   assert.equal(shouldProcessMessage({ channelType: 'channel', text: 'Hey Cursor Agent, help with this.' }), true);
   assert.equal(shouldProcessMessage({ channelType: 'channel', text: 'Hey cursor agent, help with this.' }), true);
   assert.equal(shouldProcessMessage({ channelType: 'channel', text: 'Cursor agents are useful.' }), false);
+});
+
+test('mentions and the trigger phrase can both start new chats', () => {
+  assert.equal(shouldStartChat({ isMention: true }), true);
+  assert.equal(shouldStartChat({ isMention: false, text: 'Cursor Agent, help me.' }), true);
+  assert.equal(shouldStartChat({ isMention: false, text: 'Just chatting.' }), false);
 });
 
 test('direct messages do not require a mention', () => {
