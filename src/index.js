@@ -3,6 +3,7 @@ import { loadConfig } from './config.js';
 import { askAgent, createChat } from './cursor-agent.js';
 import { openSessions } from './sessions.js';
 import { toSlackMrkdwn } from './slack-markdown.js';
+import { shouldProcessMessage, slackMessageIdentity } from './slack-message-policy.js';
 
 const config = loadConfig();
 const sessions = await openSessions(config.statePath);
@@ -44,6 +45,8 @@ async function react(client, channel, timestamp, name, method) {
 }
 
 async function handleMessage({ event, body, client, isMention }) {
+  if (!shouldProcessMessage({ channelType: event.channel_type, isMention, text: event.text })) return;
+
   const isDm = event.channel_type === 'im';
   const isBot = typeof event.bot_id === 'string' && event.bot_id.length > 0;
   const isAllowedBot = isBot && (
@@ -60,12 +63,11 @@ async function handleMessage({ event, body, client, isMention }) {
   if (!text) return;
 
   const teamId = body.team_id;
-  if (!teamId || !body.event_id) return;
+  if (!teamId || !event.channel || !event.ts) return;
   const key = threadKey(teamId, event.channel, conversationTs);
-  if (!isMention && !isDm && !event.thread_ts) return;
-  if (!isMention && !isDm && !sessions.getChat(key)) return;
-  if (sessions.hasEvent(body.event_id)) return;
-  await sessions.recordEvent(body.event_id);
+  const messageIdentity = slackMessageIdentity({ teamId, channelId: event.channel, timestamp: event.ts });
+  if (sessions.hasMessage(messageIdentity)) return;
+  await sessions.recordMessage(messageIdentity);
 
   await enqueue(key, async () => {
     await react(client, event.channel, event.ts, 'hourglass_flowing_sand', 'add');

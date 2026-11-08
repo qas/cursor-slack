@@ -2,7 +2,7 @@
 
 A self-hosted Slack bot that connects approved Slack users and bots to Cursor Agent running on the same machine. It uses Slack Bolt for JavaScript in Socket Mode and the Cursor Agent CLI; it does not use Cursor's private wire protocol.
 
-Channel mentions start a Cursor chat in a Slack thread, and thread replies continue it. Direct messages start or continue a chat for that DM. The bot runs one local Cursor CLI process per request and keeps thread-to-chat mappings in local state.
+Channel messages trigger the bot when they mention it or contain the phrase “Cursor Agent,” including in threads. Direct messages do not require a mention and continue the chat for that DM. The bot runs one local Cursor CLI process per request and keeps thread-to-chat mappings in local state.
 
 This is a local, single-workspace integration, not a hosted Slack app or a multi-workspace service. The Cursor CLI runs with the local account's credentials and access to the configured project. Only install it in a workspace you trust, and use narrow sender and channel allowlists.
 
@@ -66,7 +66,7 @@ npm --prefix "$BOT_DIR" start
 
 The bot runs in the foreground; stop it with Ctrl+C. `npm start` loads `$BOT_DIR/.env`. `SLACK_AGENT_STATE_PATH` optionally changes the local state file; the default is `state/conversations.json` under this checkout.
 
-To try it, DM the bot or mention it in the configured channel. Channel replies continue the Cursor chat in that thread. Each distinct Cursor assistant text entry is posted as a separate Slack message after the CLI run finishes; line breaks within an entry stay in that message. Common Markdown formatting is converted to Slack `mrkdwn`, including emphasis, headings, links, lists, code, and tables. The bot adds an hourglass reaction while working, then a success or failure reaction.
+To try it, DM the bot, mention it in the configured channel, or include “Cursor Agent” in a channel message. Each distinct Cursor assistant text entry is posted as a separate Slack message after the CLI run finishes; line breaks within an entry stay in that message. Common Markdown formatting is converted to Slack `mrkdwn`, including emphasis, headings, links, lists, code, and tables. The bot adds an hourglass reaction while working, then a success or failure reaction.
 
 ## Permissions and execution
 

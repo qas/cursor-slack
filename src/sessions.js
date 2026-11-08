@@ -43,11 +43,11 @@ export async function openSessions(filePath) {
       state.chats[key] = chatId;
       await persist();
     },
-    hasEvent(eventId) {
-      return state.events.includes(eventId);
+    hasMessage(messageIdentity) {
+      return state.events.includes(messageIdentity);
     },
-    async recordEvent(eventId) {
-      state.events.push(eventId);
+    async recordMessage(messageIdentity) {
+      state.events.push(messageIdentity);
       await persist();
     },
   };
