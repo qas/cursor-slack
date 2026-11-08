@@ -2,7 +2,7 @@
 
 A self-hosted Slack bot that connects approved Slack users and bots to Cursor Agent running on the same machine. It uses Slack Bolt for JavaScript in Socket Mode and the Cursor Agent CLI; it does not use Cursor's private wire protocol.
 
-Channel messages trigger the bot when they mention it or contain the phrase “Cursor Agent,” including in threads. Direct messages start or continue a chat without requiring a mention. Each channel thread or DM has a resumable Cursor chat that expires after its configured idle timeout. The bot runs at most four Cursor CLI processes concurrently.
+Channel messages trigger the bot when they mention it or contain the phrase “Cursor Agent,” including in threads. Direct messages start or continue a chat without requiring a mention. Each channel thread or DM has a resumable Cursor chat. The bot runs at most four Cursor CLI processes concurrently.
 
 This is a local, single-workspace integration, not a hosted Slack app or a multi-workspace service. The Cursor CLI runs with the local account's credentials and access to the configured project. Only install it in a workspace you trust, and use narrow sender and channel allowlists.
 
@@ -55,7 +55,6 @@ Fill in the values in `$BOT_DIR/.env`:
 - `SLACK_ALLOWED_CHANNEL_ID`: the ID of the one channel the bot may process.
 - `CURSOR_MODEL`: optional model ID passed to `cursor agent --model` for each reply. Leave blank to use the Cursor CLI account's default model. Run `cursor agent models` to list available models.
 - `CURSOR_SYSTEM_PROMPT`: optional instructions sent as the first prompt in each new Cursor chat. The bot ignores that setup turn's response; later Slack messages continue in the same chat.
-- `CURSOR_SESSION_IDLE_MINUTES`: idle time before a saved thread or DM chat stops being resumed; defaults to `30`. The timeout is checked when the next message arrives.
 
 At least one of the user or bot allowlists must contain an ID. The bot ignores messages from senders outside these lists and messages outside the configured channel or a DM with the bot. Keep `.env` private; it is excluded by `.gitignore`.
 
@@ -76,4 +75,4 @@ The allowlists are checked before a message can start or continue a Cursor chat.
 
 Cursor Agent runs with workspace trust enabled and command approval at the CLI default. This bot does not approve commands on your behalf. Requests that require interactive command approval may pause until approved through the CLI. Do not expose the bot to untrusted users or run it against a project you do not intend Cursor Agent to access.
 
-The local state file stores Slack-to-Cursor chat mappings, activity timestamps, and the 1,000 most recent processed message identities. It does not store message text. The bot terminates Cursor CLI process groups it started when shutting down; saved chat mappings remain available for later resumption until their idle timeout. Keep the state private and out of version control.
+The local state file stores Slack-to-Cursor chat mappings and the 1,000 most recent processed message identities. It does not store message text. The bot terminates Cursor CLI process groups it started when shutting down; saved chat mappings remain available for later resumption. Keep the state private and out of version control.

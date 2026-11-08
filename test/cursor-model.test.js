@@ -26,15 +26,6 @@ test('CURSOR_SYSTEM_PROMPT is optional and trimmed when configured', () => {
   assert.equal(loadConfig({ ...requiredConfig, CURSOR_SYSTEM_PROMPT: '  Slack instructions  ' }).systemPrompt, 'Slack instructions');
 });
 
-test('CURSOR_SESSION_IDLE_MINUTES defaults to 30 and validates positive integers', () => {
-  assert.equal(loadConfig(requiredConfig).sessionIdleMs, 30 * 60_000);
-  assert.equal(loadConfig({ ...requiredConfig, CURSOR_SESSION_IDLE_MINUTES: '45' }).sessionIdleMs, 45 * 60_000);
-  assert.throws(
-    () => loadConfig({ ...requiredConfig, CURSOR_SESSION_IDLE_MINUTES: '0' }),
-    /CURSOR_SESSION_IDLE_MINUTES must be a positive integer/,
-  );
-});
-
 test('Cursor process concurrency stays within its configured limit', async () => {
   const limit = createConcurrencyLimit(2);
   let active = 0;

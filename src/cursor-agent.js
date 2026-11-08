@@ -37,29 +37,29 @@ function run(command, args, options = {}) {
     if (stopping) throw new Error('Cursor process runner is shutting down');
 
     return new Promise((resolve, reject) => {
-    const childEnv = { ...process.env };
-    for (const name of Object.keys(childEnv)) {
-      if (name.startsWith('SLACK_')) delete childEnv[name];
-    }
-    const child = spawn(command, args, {
-      cwd: options.cwd,
-      env: childEnv,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      detached: process.platform !== 'win32',
-    });
-    runningProcesses.add(child);
-    let stdout = '';
-    child.stdout.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.once('error', () => {
-      runningProcesses.delete(child);
-      reject(new Error('Cursor CLI could not be started'));
-    });
-    child.once('close', (code) => {
-      runningProcesses.delete(child);
-      if (code !== 0) return reject(new Error('Cursor CLI command failed'));
-      resolve(stdout.trim());
-    });
+      const childEnv = { ...process.env };
+      for (const name of Object.keys(childEnv)) {
+        if (name.startsWith('SLACK_')) delete childEnv[name];
+      }
+      const child = spawn(command, args, {
+        cwd: options.cwd,
+        env: childEnv,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        detached: process.platform !== 'win32',
+      });
+      runningProcesses.add(child);
+      let stdout = '';
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => { stdout += chunk; });
+      child.once('error', () => {
+        runningProcesses.delete(child);
+        reject(new Error('Cursor CLI could not be started'));
+      });
+      child.once('close', (code) => {
+        runningProcesses.delete(child);
+        if (code !== 0) return reject(new Error('Cursor CLI command failed'));
+        resolve(stdout.trim());
+      });
     });
   });
 }

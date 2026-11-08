@@ -11,9 +11,7 @@ function validVersionTwo(value) {
   return isRecord(value)
     && value.version === 2
     && isRecord(value.chats)
-    && Object.values(value.chats).every((chat) => isRecord(chat)
-      && typeof chat.chatId === 'string'
-      && Number.isSafeInteger(chat.lastActivityAt))
+    && Object.values(value.chats).every((chatId) => typeof chatId === 'string')
     && Array.isArray(value.messages)
     && value.messages.every((identity) => typeof identity === 'string');
 }
@@ -30,14 +28,13 @@ function loadState(value) {
   throw new Error('Slack agent session state is invalid');
 }
 
-export async function openSessions(filePath, idleTimeoutMs) {
-  if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs <= 0) {
-    throw new Error('Session idle timeout must be a positive integer');
-  }
-
+export async function openSessions(filePath) {
   let state = { version: 2, chats: {}, messages: [] };
+  let compactLoadedMessages = false;
   try {
-    state = loadState(JSON.parse(await fs.readFile(filePath, 'utf8')));
+    const parsed = JSON.parse(await fs.readFile(filePath, 'utf8'));
+    state = loadState(parsed);
+    compactLoadedMessages = parsed.messages.length !== state.messages.length;
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
@@ -57,22 +54,14 @@ export async function openSessions(filePath, idleTimeoutMs) {
     await pending;
   }
 
-  return {
-    async getChat(key, nowMs) {
-      const chat = state.chats[key];
-      if (!chat) return undefined;
-      if (nowMs - chat.lastActivityAt >= idleTimeoutMs) {
-        delete state.chats[key];
-        await persist();
-        return undefined;
-      }
+  if (compactLoadedMessages) await persist();
 
-      chat.lastActivityAt = nowMs;
-      await persist();
-      return chat.chatId;
+  return {
+    getChat(key) {
+      return state.chats[key];
     },
-    async setChat(key, chatId, nowMs) {
-      state.chats[key] = { chatId, lastActivityAt: nowMs };
+    async setChat(key, chatId) {
+      state.chats[key] = chatId;
       await persist();
     },
     hasMessage(messageIdentity) {

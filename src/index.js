@@ -7,7 +7,7 @@ import { shouldProcessMessage, shouldStartChat, slackMessageIdentity } from './s
 import { formatSlackPrompt } from './slack-prompt.js';
 
 const config = loadConfig();
-const sessions = await openSessions(config.statePath, config.sessionIdleMs);
+const sessions = await openSessions(config.statePath);
 const app = new App({
   token: config.botToken,
   appToken: config.appToken,
@@ -73,7 +73,7 @@ async function handleMessage({ event, body, client, isMention }) {
   await enqueue(key, async () => {
     await react(client, event.channel, event.ts, 'hourglass_flowing_sand', 'add');
     try {
-      let chatId = await sessions.getChat(key, Date.now());
+      let chatId = sessions.getChat(key);
       if (!chatId) {
         if (!shouldStartChat({ channelType: event.channel_type, isMention, text: event.text })) return;
         chatId = await createChat();
@@ -85,7 +85,7 @@ async function handleMessage({ event, body, client, isMention }) {
             model: config.model,
           });
         }
-        await sessions.setChat(key, chatId, Date.now());
+        await sessions.setChat(key, chatId);
       }
       const responses = await askAgent({
         chatId,
