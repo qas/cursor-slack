@@ -1,0 +1,15 @@
+{
+  "name": "cursor-slack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/index.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.6.0"
+  }
+}
