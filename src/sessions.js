@@ -1,26 +1,48 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-function validState(value) {
-  return value !== null
-    && typeof value === 'object'
-    && value.version === 1
-    && value.chats !== null
-    && typeof value.chats === 'object'
-    && Array.isArray(value.events)
-    && value.events.every((eventId) => typeof eventId === 'string');
+const MAX_RECENT_MESSAGES = 1_000;
+
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export async function openSessions(filePath) {
-  let state = { version: 1, chats: {}, events: [] };
+function validVersionTwo(value) {
+  return isRecord(value)
+    && value.version === 2
+    && isRecord(value.chats)
+    && Object.values(value.chats).every((chat) => isRecord(chat)
+      && typeof chat.chatId === 'string'
+      && Number.isSafeInteger(chat.lastActivityAt))
+    && Array.isArray(value.messages)
+    && value.messages.every((identity) => typeof identity === 'string');
+}
+
+function loadState(value) {
+  if (validVersionTwo(value)) {
+    return {
+      version: 2,
+      chats: value.chats,
+      messages: [...new Set(value.messages)].slice(-MAX_RECENT_MESSAGES),
+    };
+  }
+
+  throw new Error('Slack agent session state is invalid');
+}
+
+export async function openSessions(filePath, idleTimeoutMs) {
+  if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs <= 0) {
+    throw new Error('Session idle timeout must be a positive integer');
+  }
+
+  let state = { version: 2, chats: {}, messages: [] };
   try {
-    const parsed = JSON.parse(await fs.readFile(filePath, 'utf8'));
-    if (!validState(parsed)) throw new Error('Slack agent session state is invalid');
-    state = parsed;
+    state = loadState(JSON.parse(await fs.readFile(filePath, 'utf8')));
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
 
+  const messages = new Set(state.messages);
   let writeTail = Promise.resolve();
   async function persist() {
     const snapshot = JSON.stringify(state);
@@ -36,18 +58,33 @@ export async function openSessions(filePath) {
   }
 
   return {
-    getChat(key) {
-      return state.chats[key];
+    async getChat(key, nowMs) {
+      const chat = state.chats[key];
+      if (!chat) return undefined;
+      if (nowMs - chat.lastActivityAt >= idleTimeoutMs) {
+        delete state.chats[key];
+        await persist();
+        return undefined;
+      }
+
+      chat.lastActivityAt = nowMs;
+      await persist();
+      return chat.chatId;
     },
-    async setChat(key, chatId) {
-      state.chats[key] = chatId;
+    async setChat(key, chatId, nowMs) {
+      state.chats[key] = { chatId, lastActivityAt: nowMs };
       await persist();
     },
     hasMessage(messageIdentity) {
-      return state.events.includes(messageIdentity);
+      return messages.has(messageIdentity);
     },
     async recordMessage(messageIdentity) {
-      state.events.push(messageIdentity);
+      if (messages.has(messageIdentity)) return;
+      messages.add(messageIdentity);
+      if (messages.size > MAX_RECENT_MESSAGES) {
+        messages.delete(messages.values().next().value);
+      }
+      state.messages = [...messages];
       await persist();
     },
   };

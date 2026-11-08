@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { spawn as spawnProcess } from 'node:child_process';
+import { chmod, mkdtemp, readFile, rm, watch, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { loadConfig } from '../src/config.js';
-import { askAgent, initializeChat } from '../src/cursor-agent.js';
+import { askAgent, createConcurrencyLimit, createChat, initializeChat, stopCursorProcesses } from '../src/cursor-agent.js';
+import { formatSlackPrompt } from '../src/slack-prompt.js';
 
 const requiredConfig = {
   SLACK_BOT_TOKEN: 'xoxb-test',
@@ -22,6 +24,53 @@ test('CURSOR_MODEL is optional and trimmed when configured', () => {
 test('CURSOR_SYSTEM_PROMPT is optional and trimmed when configured', () => {
   assert.equal(loadConfig(requiredConfig).systemPrompt, undefined);
   assert.equal(loadConfig({ ...requiredConfig, CURSOR_SYSTEM_PROMPT: '  Slack instructions  ' }).systemPrompt, 'Slack instructions');
+});
+
+test('CURSOR_SESSION_IDLE_MINUTES defaults to 30 and validates positive integers', () => {
+  assert.equal(loadConfig(requiredConfig).sessionIdleMs, 30 * 60_000);
+  assert.equal(loadConfig({ ...requiredConfig, CURSOR_SESSION_IDLE_MINUTES: '45' }).sessionIdleMs, 45 * 60_000);
+  assert.throws(
+    () => loadConfig({ ...requiredConfig, CURSOR_SESSION_IDLE_MINUTES: '0' }),
+    /CURSOR_SESSION_IDLE_MINUTES must be a positive integer/,
+  );
+});
+
+test('Cursor process concurrency stays within its configured limit', async () => {
+  const limit = createConcurrencyLimit(2);
+  let active = 0;
+  let maximumActive = 0;
+  let started = 0;
+  let release;
+  let notifyStarted;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const twoStarted = new Promise((resolve) => { notifyStarted = resolve; });
+  const operations = Array.from({ length: 5 }, () => limit(async () => {
+    active += 1;
+    started += 1;
+    maximumActive = Math.max(maximumActive, active);
+    if (started === 2) notifyStarted();
+    await gate;
+    active -= 1;
+  }));
+
+  await twoStarted;
+  assert.equal(active, 2);
+  assert.equal(started, 2);
+  release();
+  await Promise.all(operations);
+  assert.equal(maximumActive, 2);
+  assert.equal(started, 5);
+});
+
+test('agent prompt includes the Slack sender identity and preserves message mentions', () => {
+  assert.equal(
+    formatSlackPrompt({ userId: 'U123', text: 'Hi <@U456>' }),
+    'Slack sender: {"type":"user","id":"U123","mention":"<@U123>"}\n\nSlack message:\nHi <@U456>',
+  );
+  assert.equal(
+    formatSlackPrompt({ userId: 'U456', botId: 'B123', botAppId: 'A123', botName: 'Engineering Bot', text: 'hello' }),
+    'Slack sender: {"type":"bot","id":"B123","userId":"U456","mention":"<@U456>","appId":"A123","name":"Engineering Bot"}\n\nSlack message:\nhello',
+  );
 });
 
 test('askAgent passes a configured model to the Cursor CLI', async (t) => {
@@ -84,4 +133,43 @@ test('askAgent passes a configured model to the Cursor CLI', async (t) => {
   assert.deepEqual(initializationArgs.slice(0, 5), ['agent', '--resume', 'chat-id', '--model', 'composer-2']);
   assert.equal(initializationArgs[5], '-p');
   assert.equal(initializationArgs[6], 'Set Slack behavior instructions');
+});
+
+test('shutdown stops bot-owned Cursor processes but leaves unrelated processes alone', async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'cursor-slack-shutdown-test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const executable = path.join(directory, 'cursor');
+  const markerPath = path.join(directory, 'started');
+  await writeFile(executable, [
+    '#!/usr/bin/env node',
+    "require('node:fs').writeFileSync(process.env.CURSOR_START_MARKER, 'started');",
+    "process.on('SIGTERM', () => { process.stdout.write('test-chat\\n'); process.exit(0); });",
+    'setInterval(() => {}, 1000);',
+    '',
+  ].join('\n'));
+  await chmod(executable, 0o755);
+
+  const outsideProcess = spawnProcess(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  t.after(() => outsideProcess.kill('SIGKILL'));
+  const previousPath = process.env.PATH;
+  const previousMarker = process.env.CURSOR_START_MARKER;
+  process.env.PATH = `${directory}${path.delimiter}${previousPath ?? ''}`;
+  process.env.CURSOR_START_MARKER = markerPath;
+  t.after(() => {
+    if (previousPath === undefined) delete process.env.PATH;
+    else process.env.PATH = previousPath;
+    if (previousMarker === undefined) delete process.env.CURSOR_START_MARKER;
+    else process.env.CURSOR_START_MARKER = previousMarker;
+  });
+
+  const watcher = watch(directory);
+  const chatPromise = createChat();
+  for await (const event of watcher) {
+    if (String(event.filename) === 'started') break;
+  }
+
+  await stopCursorProcesses();
+  assert.equal(await chatPromise, 'test-chat');
+  assert.doesNotThrow(() => process.kill(outsideProcess.pid, 0));
+  outsideProcess.kill('SIGTERM');
 });

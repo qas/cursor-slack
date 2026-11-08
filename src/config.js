@@ -24,6 +24,7 @@ export function loadConfig(env = process.env) {
   const workspace = path.resolve(required(env, 'CURSOR_WORKSPACE'));
   const model = env.CURSOR_MODEL?.trim() || undefined;
   const systemPrompt = env.CURSOR_SYSTEM_PROMPT?.trim() || undefined;
+  const sessionIdleMinutes = Number(env.CURSOR_SESSION_IDLE_MINUTES?.trim() || '30');
   const statePath = path.resolve(env.SLACK_AGENT_STATE_PATH?.trim() || 'state/conversations.json');
 
   if (!botToken.startsWith('xoxb-')) throw new Error('SLACK_BOT_TOKEN is invalid');
@@ -32,6 +33,11 @@ export function loadConfig(env = process.env) {
     throw new Error('SLACK_ALLOWED_USER_IDS or SLACK_ALLOWED_BOT_IDS is required');
   }
   if (!/^[CG][A-Z0-9]+$/.test(allowedChannelId)) throw new Error('SLACK_ALLOWED_CHANNEL_ID is invalid');
+  if (!Number.isSafeInteger(sessionIdleMinutes)
+    || sessionIdleMinutes <= 0
+    || !Number.isSafeInteger(sessionIdleMinutes * 60_000)) {
+    throw new Error('CURSOR_SESSION_IDLE_MINUTES must be a positive integer');
+  }
 
   return {
     botToken,
@@ -42,6 +48,7 @@ export function loadConfig(env = process.env) {
     workspace,
     model,
     systemPrompt,
+    sessionIdleMs: sessionIdleMinutes * 60_000,
     statePath,
   };
 }

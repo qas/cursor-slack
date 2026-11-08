@@ -14,13 +14,14 @@ test('channel messages containing Cursor Agent trigger case-insensitively', () =
 });
 
 test('mentions and the trigger phrase can both start new chats', () => {
-  assert.equal(shouldStartChat({ isMention: true }), true);
-  assert.equal(shouldStartChat({ isMention: false, text: 'Cursor Agent, help me.' }), true);
-  assert.equal(shouldStartChat({ isMention: false, text: 'Just chatting.' }), false);
+  assert.equal(shouldStartChat({ channelType: 'channel', isMention: true }), true);
+  assert.equal(shouldStartChat({ channelType: 'channel', isMention: false, text: 'Cursor Agent, help me.' }), true);
+  assert.equal(shouldStartChat({ channelType: 'channel', isMention: false, text: 'Just chatting.' }), false);
 });
 
-test('direct messages do not require a mention', () => {
+test('a normal first direct message starts a chat without a mention', () => {
   assert.equal(shouldProcessMessage({ channelType: 'im', isMention: false }), true);
+  assert.equal(shouldStartChat({ channelType: 'im', isMention: false, text: 'Hey, can you help?' }), true);
 });
 
 test('message identity is stable across Slack event types for the same message', () => {

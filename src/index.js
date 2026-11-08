@@ -1,12 +1,13 @@
 import { App } from '@slack/bolt';
 import { loadConfig } from './config.js';
-import { askAgent, createChat, initializeChat } from './cursor-agent.js';
+import { askAgent, createChat, initializeChat, stopCursorProcesses } from './cursor-agent.js';
 import { openSessions } from './sessions.js';
 import { toSlackMrkdwn } from './slack-markdown.js';
 import { shouldProcessMessage, shouldStartChat, slackMessageIdentity } from './slack-message-policy.js';
+import { formatSlackPrompt } from './slack-prompt.js';
 
 const config = loadConfig();
-const sessions = await openSessions(config.statePath);
+const sessions = await openSessions(config.statePath, config.sessionIdleMs);
 const app = new App({
   token: config.botToken,
   appToken: config.appToken,
@@ -72,9 +73,9 @@ async function handleMessage({ event, body, client, isMention }) {
   await enqueue(key, async () => {
     await react(client, event.channel, event.ts, 'hourglass_flowing_sand', 'add');
     try {
-      let chatId = sessions.getChat(key);
+      let chatId = await sessions.getChat(key, Date.now());
       if (!chatId) {
-        if (!shouldStartChat({ isMention, text: event.text })) return;
+        if (!shouldStartChat({ channelType: event.channel_type, isMention, text: event.text })) return;
         chatId = await createChat();
         if (config.systemPrompt) {
           await initializeChat({
@@ -84,11 +85,17 @@ async function handleMessage({ event, body, client, isMention }) {
             model: config.model,
           });
         }
-        await sessions.setChat(key, chatId);
+        await sessions.setChat(key, chatId, Date.now());
       }
       const responses = await askAgent({
         chatId,
-        prompt: text,
+        prompt: formatSlackPrompt({
+          text,
+          userId: event.user,
+          botId: isBot ? event.bot_id : undefined,
+          botAppId: isBot ? event.bot_profile?.app_id : undefined,
+          botName: isBot ? event.bot_profile?.name : undefined,
+        }),
         workspace: config.workspace,
         model: config.model,
       });
@@ -129,8 +136,13 @@ await app.start();
 log('slack_agent_started', { channelId: config.allowedChannelId, workspace: config.workspace });
 
 async function shutdown() {
-  await app.stop();
-  process.exit(0);
+  const stoppingCursorProcesses = stopCursorProcesses();
+  try {
+    await app.stop();
+  } finally {
+    await stoppingCursorProcesses;
+    process.exit(0);
+  }
 }
 
 process.once('SIGINT', shutdown);
