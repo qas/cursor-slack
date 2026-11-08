@@ -67,7 +67,7 @@ npm --prefix "$BOT_DIR" start
 
 The bot runs in the foreground; stop it with Ctrl+C. `npm start` loads `$BOT_DIR/.env`. `SLACK_AGENT_STATE_PATH` optionally changes the local state file; the default is `state/conversations.json` under this checkout.
 
-To try it, DM the bot, mention it in the configured channel, or include “Cursor Agent” in a channel message. Each distinct Cursor assistant text entry is posted as a separate Slack message after the CLI run finishes; line breaks within an entry stay in that message. Common Markdown formatting is converted to Slack `mrkdwn`, including emphasis, headings, links, lists, code, and tables. The bot adds an hourglass reaction while working, then a success or failure reaction.
+To try it, DM the bot, mention it in the configured channel, or include “Cursor Agent” in a channel message. Incoming Slack user mentions are preserved in the prompt so Cursor can reuse their IDs; valid mention tokens in Cursor replies are passed through to Slack. Each distinct Cursor assistant text entry is posted as a separate Slack message after the CLI run finishes; line breaks within an entry stay in that message. Common Markdown formatting is converted to Slack `mrkdwn`, including emphasis, headings, links, lists, code, and tables. The bot adds an hourglass reaction while working, then a success or failure reaction.
 
 ## Permissions and execution
 

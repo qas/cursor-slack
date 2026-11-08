@@ -1,10 +1,14 @@
 import { Marked } from 'marked';
 
-function escapeSlackText(text) {
-  return text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+function escapeSlackText(text, preserveMentions = false) {
+  const parts = preserveMentions ? text.split(/(<@[UW][A-Z0-9]+>)/g) : [text];
+  return parts.map((part) => {
+    if (preserveMentions && /^<@[UW][A-Z0-9]+>$/.test(part)) return part;
+    return part
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+  }).join('');
 }
 
 function slackUrl(href) {
@@ -45,6 +49,7 @@ const markdown = new Marked({
       return '────────\n\n';
     },
     html(token) {
+      if (/^<@[UW][A-Z0-9]+>$/.test(token.text)) return token.text;
       return `${escapeSlackText(token.text)}${token.block ? '\n\n' : ''}`;
     },
     image(token) {
@@ -81,7 +86,7 @@ const markdown = new Marked({
       return `${rows.join('\n\n')}\n\n`;
     },
     text(token) {
-      return escapeSlackText(token.text);
+      return escapeSlackText(token.text, true);
     },
   },
 });

@@ -29,7 +29,7 @@ function enqueue(key, operation) {
 }
 
 function messageText(text) {
-  return (text ?? '').replace(/<@[A-Z0-9]+>/g, '').trim();
+  return (text ?? '').trim();
 }
 
 function log(operation, fields = {}) {

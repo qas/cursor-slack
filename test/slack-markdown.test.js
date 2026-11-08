@@ -47,3 +47,10 @@ test('escapes raw HTML and leaves unsupported links as text', () => {
     '&lt;script&gt;alert(1)&lt;/script&gt;\n\nlocal (file.md)',
   );
 });
+
+test('preserves Slack user mentions while escaping other HTML', () => {
+  assert.equal(
+    toSlackMrkdwn('Hi <@U0CGS3NQXBJ> and <script>bad()</script>'),
+    'Hi <@U0CGS3NQXBJ> and &lt;script&gt;bad()&lt;/script&gt;',
+  );
+});
