@@ -22,6 +22,7 @@ export function loadConfig(env = process.env) {
   const allowedBotIds = idList(env, 'SLACK_ALLOWED_BOT_IDS', /^[AB][A-Z0-9]+$/);
   const allowedChannelId = required(env, 'SLACK_ALLOWED_CHANNEL_ID');
   const workspace = path.resolve(required(env, 'CURSOR_WORKSPACE'));
+  const model = env.CURSOR_MODEL?.trim() || undefined;
   const statePath = path.resolve(env.SLACK_AGENT_STATE_PATH?.trim() || 'state/conversations.json');
 
   if (!botToken.startsWith('xoxb-')) throw new Error('SLACK_BOT_TOKEN is invalid');
@@ -38,6 +39,7 @@ export function loadConfig(env = process.env) {
     allowedBotIds,
     allowedChannelId,
     workspace,
+    model,
     statePath,
   };
 }

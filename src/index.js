@@ -2,6 +2,7 @@ import { App } from '@slack/bolt';
 import { loadConfig } from './config.js';
 import { askAgent, createChat } from './cursor-agent.js';
 import { openSessions } from './sessions.js';
+import { toSlackMrkdwn } from './slack-markdown.js';
 
 const config = loadConfig();
 const sessions = await openSessions(config.statePath);
@@ -75,13 +76,20 @@ async function handleMessage({ event, body, client, isMention }) {
         chatId = await createChat();
         await sessions.setChat(key, chatId);
       }
-      const response = await askAgent({ chatId, prompt: text, workspace: config.workspace });
-      const reply = {
-        channel: event.channel,
-        text: response.slice(0, 39_000),
-      };
-      if (replyThreadTs) reply.thread_ts = replyThreadTs;
-      await client.chat.postMessage(reply);
+      const responses = await askAgent({
+        chatId,
+        prompt: text,
+        workspace: config.workspace,
+        model: config.model,
+      });
+      for (const response of responses) {
+        const reply = {
+          channel: event.channel,
+          text: toSlackMrkdwn(response).slice(0, 39_000),
+        };
+        if (replyThreadTs) reply.thread_ts = replyThreadTs;
+        await client.chat.postMessage(reply);
+      }
       await react(client, event.channel, event.ts, 'white_check_mark', 'add');
     } catch (error) {
       log('agent_message_failed', { error: error instanceof Error ? error.message : 'unknown error' });

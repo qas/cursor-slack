@@ -53,6 +53,7 @@ Fill in the values in `$BOT_DIR/.env`:
 - `SLACK_ALLOWED_USER_IDS`: approved Slack user IDs, separated by commas. Optional if bot IDs are configured.
 - `SLACK_ALLOWED_BOT_IDS`: approved Slack bot IDs (`B…`) and/or Slack app IDs (`A…`), separated by commas. App IDs are matched against the sender's `bot_profile.app_id`. Optional if user IDs are configured.
 - `SLACK_ALLOWED_CHANNEL_ID`: the ID of the one channel the bot may process.
+- `CURSOR_MODEL`: optional model ID passed to `cursor agent --model` for each reply. Leave blank to use the Cursor CLI account's default model. Run `cursor agent models` to list available models.
 
 At least one of the user or bot allowlists must contain an ID. The bot ignores messages from senders outside these lists and messages outside the configured channel or a DM with the bot. Keep `.env` private; it is excluded by `.gitignore`.
 
@@ -65,7 +66,7 @@ npm --prefix "$BOT_DIR" start
 
 The bot runs in the foreground; stop it with Ctrl+C. `npm start` loads `$BOT_DIR/.env`. `SLACK_AGENT_STATE_PATH` optionally changes the local state file; the default is `state/conversations.json` under this checkout.
 
-To try it, DM the bot or mention it in the configured channel. Channel replies continue the Cursor chat in that thread. The bot adds an hourglass reaction while working, then a success or failure reaction.
+To try it, DM the bot or mention it in the configured channel. Channel replies continue the Cursor chat in that thread. Each distinct Cursor assistant text entry is posted as a separate Slack message after the CLI run finishes; line breaks within an entry stay in that message. Common Markdown formatting is converted to Slack `mrkdwn`, including emphasis, headings, links, lists, code, and tables. The bot adds an hourglass reaction while working, then a success or failure reaction.
 
 ## Permissions and execution
 

@@ -28,24 +28,37 @@ export async function createChat() {
   return chatId;
 }
 
-export async function askAgent({ chatId, prompt, workspace }) {
-  const output = await run('cursor', [
+function assistantMessages(output) {
+  let events;
+  try {
+    events = output.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  } catch {
+    throw new Error('Cursor CLI returned invalid stream JSON');
+  }
+
+  const messages = events
+    .filter((event) => event.type === 'assistant' && Array.isArray(event.message?.content))
+    .map((event) => event.message.content
+      .filter((item) => item.type === 'text' && typeof item.text === 'string')
+      .map((item) => item.text)
+      .join('')
+      .trim())
+    .filter(Boolean);
+
+  if (messages.length === 0) throw new Error('Cursor CLI returned no response');
+  return messages;
+}
+
+export async function askAgent({ chatId, prompt, workspace, model }) {
+  const args = [
     'agent',
     '--resume', chatId,
+    ...(model ? ['--model', model] : []),
     '-p', prompt,
     '--trust',
     '--workspace', workspace,
-    '--output-format', 'json',
-  ], { cwd: workspace });
-
-  let result;
-  try {
-    result = JSON.parse(output);
-  } catch {
-    throw new Error('Cursor CLI returned invalid JSON');
-  }
-  if (typeof result.result !== 'string' || !result.result.trim()) {
-    throw new Error('Cursor CLI returned no response');
-  }
-  return result.result.trim();
+    '--output-format', 'stream-json',
+  ];
+  const output = await run('cursor', args, { cwd: workspace });
+  return assistantMessages(output);
 }
